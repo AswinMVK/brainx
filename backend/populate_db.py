@@ -1,4 +1,4 @@
-from app import db, User, Scheme, SchemeCategory, app
+from app_sqlalchemy_backup import db, User, Scheme, SchemeCategory, app
 from datetime import datetime
 
 with app.app_context():
@@ -36,11 +36,11 @@ with app.app_context():
     # Create sample users
     user1 = User(
         aadhaar_number="123456789012",
-        full_name="John Doe",
+        full_name="Ravi Kumar",
         gender="male",
         date_of_birth=datetime(1990, 1, 1).date(),
         phone="9876543210",
-        email="john@example.com",
+        email="ravi@mail.com",
         income=50000.00,
         occupation="Farmer",
         is_bpl=True
@@ -61,7 +61,7 @@ with app.app_context():
     db.session.commit()
 
     # Example risk scores and notifications
-    from app import RiskScore, Notification
+    from app_sqlalchemy_backup import RiskScore, Notification
 
     risk1 = RiskScore(user_id=user1.id, anomaly_score=0.12, fraud_probability=0.05, risk_level='low', updated_at=datetime.utcnow())
     risk2 = RiskScore(user_id=user2.id, anomaly_score=0.35, fraud_probability=0.18, risk_level='medium', updated_at=datetime.utcnow())

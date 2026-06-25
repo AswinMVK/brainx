@@ -57,3 +57,10 @@ Thumbs.db
 
 # Logs
 *.log
+flask_err.txt
+flask_out.txt
+node_err.txt
+node_out.txt
+
+# Vite cache
+.vite/
