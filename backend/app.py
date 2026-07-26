@@ -160,7 +160,7 @@ def save_upload(f, sub, exts):
     return f'uploads/{sub}/{fn}'
 
 # ── Blockchain ───────────────────────────────────────────────────────────────
-BLOCKCHAIN_SERVICE = os.environ.get('BLOCKCHAIN_SERVICE', 'http://localhost:3001')
+BLOCKCHAIN_SERVICE = os.environ.get('BLOCKCHAIN_SERVICE', 'http://localhost:3001').rstrip('/')
 
 def _record_on_chain(event_type, user_id, data=None, recorded_by='system'):
     try:
