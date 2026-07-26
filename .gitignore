@@ -45,7 +45,6 @@ yarn-error.log*
 *.joblib
 *.pkl
 *.h5
-*.pkl
 
 # Data files (large)
 data/*.csv
@@ -64,3 +63,6 @@ node_out.txt
 
 # Vite cache
 .vite/
+
+# Uploads
+backend/uploads/

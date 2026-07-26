@@ -2,12 +2,12 @@ import sys
 import os
 
 # Set environment variables for the remote database
-os.environ['DATABASE_URL'] = 'mysql+pymysql://sql12831314:arGjNnigFb@sql12.freesqldatabase.com:3306/sql12831314'
+os.environ['DATABASE_URL'] = 'mysql+pymysql://sql12833892:tGWQVsg5dx@sql12.freesqldatabase.com:3306/sql12833892'
 os.environ['DB_HOST'] = 'sql12.freesqldatabase.com'
 os.environ['DB_PORT'] = '3306'
-os.environ['DB_USER'] = 'sql12831314'
-os.environ['DB_PASSWORD'] = 'arGjNnigFb'
-os.environ['DB_NAME'] = 'sql12831314'
+os.environ['DB_USER'] = 'sql12833892'
+os.environ['DB_PASSWORD'] = 'tGWQVsg5dx'
+os.environ['DB_NAME'] = 'sql12833892'
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 

@@ -1171,9 +1171,9 @@ def admin_video_result(verif_id):
     return jsonify({'id': verif_id, 'status': new_status, 'video_status': 'completed',
                     'block_hash': block_hash, 'block_index': block_index})
 
-# ── Ollama AI Assistant ──────────────────────────────────────────────────────
-OLLAMA_URL = 'http://localhost:11434'
-OLLAMA_MODEL = 'qwen2.5:latest'
+# ── Google Gemini AI Assistant ───────────────────────────────────────────────
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+GEMINI_MODEL = 'gemini-1.5-flash'
 
 def _build_assistant_context(user_id):
     """Gather user-specific data to give the LLM full context."""
@@ -1245,13 +1245,18 @@ def _build_assistant_context(user_id):
     return "\n".join(parts)
 
 @app.route('/chat', methods=['POST'])
-def ollama_chat():
+def ai_chat():
     data = request.json or {}
     user_msg = (data.get('message') or '').strip()
     user_id = data.get('user_id')
     history = data.get('history', [])
     if not user_msg:
         return jsonify({'error': 'message is required'}), 400
+
+    if not GEMINI_API_KEY:
+        return jsonify({
+            'error': 'Gemini API Key is missing. Please set the GEMINI_API_KEY environment variable. You can obtain a free API key from Google AI Studio (https://aistudio.google.com).'
+        }), 400
 
     # Build context
     ctx = _build_assistant_context(int(user_id)) if user_id else ''
@@ -1277,30 +1282,66 @@ IMPORTANT RULES:
 {ctx}
 --- END DATA ---"""
 
-    messages = [{'role': 'system', 'content': system_prompt}]
+    # Format history and current message for Gemini API
+    gemini_contents = []
     for h in history[-10:]:  # keep last 10 messages for context
-        messages.append({'role': h.get('role', 'user'), 'content': h.get('content', '')})
-    messages.append({'role': 'user', 'content': user_msg})
+        role = 'user' if h.get('role') == 'user' else 'model'
+        gemini_contents.append({
+            'role': role,
+            'parts': [{'text': h.get('content', '')}]
+        })
+    
+    # Add current message
+    gemini_contents.append({
+        'role': 'user',
+        'parts': [{'text': user_msg}]
+    })
 
     try:
-        payload = _json.dumps({
-            'model': OLLAMA_MODEL,
-            'messages': messages,
-            'stream': False,
-            'options': {'temperature': 0.7, 'num_predict': 512},
-        }).encode()
+        payload_data = {
+            'contents': gemini_contents,
+            'systemInstruction': {
+                'parts': [{'text': system_prompt}]
+            },
+            'generationConfig': {
+                'temperature': 0.7,
+                'maxOutputTokens': 512
+            }
+        }
+        
+        payload = _json.dumps(payload_data).encode('utf-8')
+        
+        url = f'https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}'
         req = urllib.request.Request(
-            f'{OLLAMA_URL}/api/chat',
+            url,
             data=payload,
             headers={'Content-Type': 'application/json'},
             method='POST',
         )
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            result = _json.loads(resp.read())
-        reply = result.get('message', {}).get('content', 'Sorry, I could not generate a response.')
+        
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = _json.loads(resp.read().decode('utf-8'))
+            
+        candidates = result.get('candidates', [])
+        if candidates:
+            parts = candidates[0].get('content', {}).get('parts', [])
+            if parts:
+                reply = parts[0].get('text', 'Sorry, I could not generate a response.')
+            else:
+                reply = 'Sorry, I could not generate a response.'
+        else:
+            reply = 'Sorry, I could not generate a response.'
+            
         return jsonify({'reply': reply})
-    except urllib.error.URLError:
-        return jsonify({'error': 'Ollama service is not running. Please start it with: ollama serve'}), 503
+        
+    except urllib.error.HTTPError as e:
+        err_msg = e.read().decode('utf-8')
+        try:
+            err_json = _json.loads(err_msg)
+            message = err_json.get('error', {}).get('message', err_msg)
+        except Exception:
+            message = err_msg
+        return jsonify({'error': f'Gemini API error: {message}'}), e.code
     except Exception as e:
         return jsonify({'error': f'AI service error: {str(e)}'}), 500
 
