@@ -62,7 +62,7 @@ export default function AdminVerificationPanel() {
   };
 
   const currentList = tab === 0 ? verifs : tab === 1 ? pendVid : done;
-  const BASE_URL = 'http://localhost:5000';
+  const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '2rem 1rem' }}>
