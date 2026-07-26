@@ -31,3 +31,7 @@ python-dateutil==2.8.2
 # NLP for explanations
 transformers==4.36.2
 torch==2.1.2
+
+# Groq Client SDK
+groq==1.6.0
+

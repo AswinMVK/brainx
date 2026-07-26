@@ -1171,9 +1171,10 @@ def admin_video_result(verif_id):
     return jsonify({'id': verif_id, 'status': new_status, 'video_status': 'completed',
                     'block_hash': block_hash, 'block_index': block_index})
 
-# ── Google Gemini AI Assistant ───────────────────────────────────────────────
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
-GEMINI_MODEL = 'gemini-2.0-flash'
+# ── Groq AI Assistant ────────────────────────────────────────────────────────
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+GROQ_MODEL = 'llama-3.1-8b-instant'
+
 
 
 def _build_assistant_context(user_id):
@@ -1254,10 +1255,19 @@ def ai_chat():
     if not user_msg:
         return jsonify({'error': 'message is required'}), 400
 
-    if not GEMINI_API_KEY:
+    # We read GROQ_API_KEY from environment or config
+    groq_api_key = os.environ.get('GROQ_API_KEY') or GROQ_API_KEY
+    if not groq_api_key:
         return jsonify({
-            'error': 'Gemini API Key is missing. Please set the GEMINI_API_KEY environment variable. You can obtain a free API key from Google AI Studio (https://aistudio.google.com).'
+            'error': 'Groq API Key is missing. Please set the GROQ_API_KEY environment variable. You can obtain a free API key from Groq Console (https://console.groq.com).'
         }), 400
+
+    try:
+        from groq import Groq
+    except ImportError:
+        return jsonify({
+            'error': 'The "groq" Python package is not installed. Please run "pip install groq" or ensure requirements.txt was successfully installed.'
+        }), 500
 
     # Build context
     ctx = _build_assistant_context(int(user_id)) if user_id else ''
@@ -1283,68 +1293,36 @@ IMPORTANT RULES:
 {ctx}
 --- END DATA ---"""
 
-    # Format history and current message for Gemini API
-    gemini_contents = []
+    # Format history and current message for Groq API
+    messages = [{'role': 'system', 'content': system_prompt}]
     for h in history[-10:]:  # keep last 10 messages for context
-        role = 'user' if h.get('role') == 'user' else 'model'
-        gemini_contents.append({
-            'role': role,
-            'parts': [{'text': h.get('content', '')}]
+        messages.append({
+            'role': h.get('role', 'user'),
+            'content': h.get('content', '')
         })
     
     # Add current message
-    gemini_contents.append({
+    messages.append({
         'role': 'user',
-        'parts': [{'text': user_msg}]
+        'content': user_msg
     })
 
     try:
-        payload_data = {
-            'contents': gemini_contents,
-            'systemInstruction': {
-                'parts': [{'text': system_prompt}]
-            },
-            'generationConfig': {
-                'temperature': 0.7,
-                'maxOutputTokens': 512
-            }
-        }
+        # Initialize Groq client (uses HTTPX which is allowlisted by Cloudflare for Groq endpoints)
+        client = Groq(api_key=groq_api_key)
         
-        payload = _json.dumps(payload_data).encode('utf-8')
-        
-        url = f'https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}'
-        req = urllib.request.Request(
-            url,
-            data=payload,
-            headers={'Content-Type': 'application/json'},
-            method='POST',
+        completion = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=messages,
+            temperature=0.7,
+            max_tokens=512
         )
         
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            result = _json.loads(resp.read().decode('utf-8'))
-            
-        candidates = result.get('candidates', [])
-        if candidates:
-            parts = candidates[0].get('content', {}).get('parts', [])
-            if parts:
-                reply = parts[0].get('text', 'Sorry, I could not generate a response.')
-            else:
-                reply = 'Sorry, I could not generate a response.'
-        else:
-            reply = 'Sorry, I could not generate a response.'
-            
+        reply = completion.choices[0].message.content or 'Sorry, I could not generate a response.'
         return jsonify({'reply': reply})
         
-    except urllib.error.HTTPError as e:
-        err_msg = e.read().decode('utf-8')
-        try:
-            err_json = _json.loads(err_msg)
-            message = err_json.get('error', {}).get('message', err_msg)
-        except Exception:
-            message = err_msg
-        return jsonify({'error': f'Gemini API error: {message}'}), e.code
     except Exception as e:
-        return jsonify({'error': f'AI service error: {str(e)}'}), 500
+        return jsonify({'error': f'Groq API error: {str(e)}'}), 500
 
 # ── Blockchain proxy ─────────────────────────────────────────────────────────
 @app.route('/blockchain/<path:subpath>', methods=['GET', 'POST'])
