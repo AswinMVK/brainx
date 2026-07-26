@@ -204,7 +204,7 @@ app.get('/chain/validate', (req, res) => {
 });
 
 /* ── Start ───────────────────────────────────────────────────────────────────── */
-const PORT = process.env.BLOCKCHAIN_PORT || 3001;
+const PORT = process.env.PORT || process.env.BLOCKCHAIN_PORT || 3001;
 app.listen(PORT, () => {
   console.log('\n+--------------------------------------------+');
   console.log('|  DigiVerify Blockchain Service             |');
