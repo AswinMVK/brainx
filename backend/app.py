@@ -563,6 +563,11 @@ def apply_scheme(user_id):
         "INSERT INTO applications (user_id,scheme_id,status,submitted_at) VALUES (%s,%s,'submitted',NOW())",
         (user_id, scheme_id),
     )
+    _record_on_chain(
+        'APPLICATION_SUBMITTED', user_id,
+        {'application_id': aid, 'scheme_id': scheme_id},
+        recorded_by='user'
+    )
     return jsonify({'id': aid, 'status': 'submitted'}), 201
 
 # ── Risk / Fraud ─────────────────────────────────────────────────────────────
@@ -677,6 +682,13 @@ def update_application_status(app_id):
         return jsonify({'error': 'Application not found'}), 404
     execute("UPDATE applications SET status=%s, reviewed_at=NOW() WHERE id=%s", (new_status, app_id))
     _notify(a['user_id'], f"Your application #{app_id} has been {new_status}.", 'application_update')
+    
+    event_type = 'APPLICATION_APPROVED' if new_status == 'approved' else 'APPLICATION_REJECTED' if new_status == 'rejected' else 'APPLICATION_UPDATED'
+    _record_on_chain(
+        event_type, a['user_id'],
+        {'application_id': app_id, 'scheme_id': a['scheme_id'], 'status': new_status},
+        recorded_by='admin'
+    )
     return jsonify({'id': app_id, 'status': new_status})
 
 @app.route('/admin/recompute_risk', methods=['POST'])
