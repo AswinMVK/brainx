@@ -54,15 +54,43 @@ def _handle_preflight():
 # ══════════════════════════════════════════════════════════════════════════════
 # Database helpers
 # ══════════════════════════════════════════════════════════════════════════════
-DB_CFG = dict(
-    host=os.environ.get('DB_HOST', 'localhost'),
-    port=int(os.environ.get('DB_PORT', 3306)),
-    user=os.environ.get('DB_USER', 'root'),
-    password=os.environ.get('DB_PASSWORD', 'root@123'),
-    database=os.environ.get('DB_NAME', 'welfare_system'),
-    cursorclass=pymysql.cursors.DictCursor,
-    charset='utf8mb4',
-)
+from urllib.parse import urlparse
+
+# Database configuration
+db_url = os.environ.get('DATABASE_URL')
+if db_url:
+    try:
+        parsed = urlparse(db_url.replace('mysql+pymysql://', 'mysql://'))
+        DB_CFG = dict(
+            host=parsed.hostname or 'localhost',
+            port=parsed.port or 3306,
+            user=parsed.username or 'root',
+            password=parsed.password or '',
+            database=parsed.path.lstrip('/') or 'welfare_system',
+            cursorclass=pymysql.cursors.DictCursor,
+            charset='utf8mb4',
+        )
+    except Exception as parse_err:
+        print(f"[DB] Error parsing DATABASE_URL: {parse_err}")
+        DB_CFG = dict(
+            host=os.environ.get('DB_HOST', 'localhost'),
+            port=int(os.environ.get('DB_PORT', 3306)),
+            user=os.environ.get('DB_USER', 'root'),
+            password=os.environ.get('DB_PASSWORD', 'root@123'),
+            database=os.environ.get('DB_NAME', 'welfare_system'),
+            cursorclass=pymysql.cursors.DictCursor,
+            charset='utf8mb4',
+        )
+else:
+    DB_CFG = dict(
+        host=os.environ.get('DB_HOST', 'localhost'),
+        port=int(os.environ.get('DB_PORT', 3306)),
+        user=os.environ.get('DB_USER', 'root'),
+        password=os.environ.get('DB_PASSWORD', 'root@123'),
+        database=os.environ.get('DB_NAME', 'welfare_system'),
+        cursorclass=pymysql.cursors.DictCursor,
+        charset='utf8mb4',
+    )
 
 def get_conn(retries: int = 12, delay: float = 2.0):
     """Get a new DB connection, retrying a few times if the server is not yet ready.
