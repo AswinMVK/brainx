@@ -237,6 +237,26 @@ def execute_many(sql_list):
         finally:
             conn.close()
 
+def _get_age(dob):
+    if not dob:
+        return 35  # default fallback age
+    if isinstance(dob, str):
+        try:
+            # handle 'YYYY-MM-DD' string format from SQLite
+            dob = datetime.strptime(dob.split(' ')[0], '%Y-%m-%d').date()
+        except Exception:
+            return 35
+    elif isinstance(dob, datetime):
+        dob = dob.date()
+    elif isinstance(dob, date):
+        pass
+    else:
+        return 35
+    try:
+        return (datetime.utcnow().date() - dob).days // 365
+    except Exception:
+        return 35
+
 # ── Serialization ────────────────────────────────────────────────────────────
 def _cv(v):
     if v is None: return None
@@ -699,9 +719,7 @@ def recompute_risk():
     user_data = []
     for u in users:
         app_count = fetchone("SELECT COUNT(*) as c FROM applications WHERE user_id=%s", (u['id'],))['c']
-        age = 35
-        if u.get('date_of_birth'):
-            age = (datetime.utcnow().date() - u['date_of_birth']).days // 365
+        age = _get_age(u.get('date_of_birth'))
         user_data.append({
             'user_id': u['id'], 'age': age,
             'income': float(u['income']) if u.get('income') else 50000,
@@ -734,7 +752,7 @@ def get_user_profile(user_id):
     apps = fetchall("SELECT * FROM applications WHERE user_id=%s", (user_id,))
     identity = fetchone("SELECT * FROM user_identity WHERE user_id=%s", (user_id,))
     ml = fetchone("SELECT cluster_label FROM ml_analysis WHERE user_id=%s", (user_id,))
-    age = (datetime.utcnow().date() - u['date_of_birth']).days // 365 if u.get('date_of_birth') else None
+    age = _get_age(u.get('date_of_birth')) if u.get('date_of_birth') else None
     status_counts = {}
     for a in apps:
         status_counts[a['status']] = status_counts.get(a['status'], 0) + 1
@@ -798,9 +816,7 @@ def _compute_risk_reasons(user, risk, flags_count=0, app_count=0):
     reasons = []
     fraud_prob = float(risk['fraud_probability']) if risk and risk.get('fraud_probability') else 0.0
     anomaly = float(risk['anomaly_score']) if risk and risk.get('anomaly_score') else 0.0
-    age = 35
-    if user.get('date_of_birth'):
-        age = (datetime.utcnow().date() - user['date_of_birth']).days // 365
+    age = _get_age(user.get('date_of_birth'))
     income = float(user['income']) if user.get('income') else 50000
     is_bpl = int(user.get('is_bpl') or 0)
 
@@ -953,7 +969,7 @@ def get_ml_analysis(user_id):
         flags_count = fetchone("SELECT COUNT(*) as c FROM fraud_flags WHERE user_id=%s", (user_id,))['c']
         apps = fetchall("SELECT scheme_id FROM applications WHERE user_id=%s", (user_id,))
         app_count = len(apps)
-        age = (datetime.utcnow().date() - u['date_of_birth']).days // 365 if u.get('date_of_birth') else 35
+        age = _get_age(u.get('date_of_birth'))
         income = float(u['income']) if u.get('income') else 50000
         scheme_names = []
         for a in apps:
