@@ -92,6 +92,57 @@ else:
         charset='utf8mb4',
     )
 
+import sqlite3
+
+USE_SQLITE = False
+db_url = os.environ.get('DATABASE_URL')
+if db_url and 'sqlite' in db_url:
+    USE_SQLITE = True
+    sqlite_path = db_url.replace('sqlite:///', '').replace('sqlite://', '')
+else:
+    # Auto-detect if MySQL is unreachable
+    try:
+        conn = pymysql.connect(**DB_CFG)
+        conn.close()
+    except Exception as db_exc:
+        print(f"[DB] MySQL connection failed: {db_exc}. Falling back to local SQLite!")
+        USE_SQLITE = True
+        sqlite_path = os.path.join(os.path.dirname(__file__), 'welfare_system.db')
+
+def translate_mysql_to_sqlite(sql):
+    sql = sql.replace('%s', '?')
+    sql = sql.replace('NOW()', "datetime('now', 'localtime')")
+    sql = sql.replace("DATE_ADD(NOW(), INTERVAL 3 MONTH)", "datetime('now', 'localtime', '+3 months')")
+    sql = sql.replace("DATE_ADD(datetime('now', 'localtime'), INTERVAL 3 MONTH)", "datetime('now', 'localtime', '+3 months')")
+    return sql
+
+if USE_SQLITE:
+    def get_sqlite_conn():
+        conn = sqlite3.connect(sqlite_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    # Auto-initialize SQLite database if it doesn't exist
+    db_path = os.path.abspath(sqlite_path)
+    if not os.path.exists(db_path):
+        print(f"[DB] Creating and seeding SQLite database: {db_path}")
+        os.environ['DATABASE_URL'] = f"sqlite:///{db_path}"
+        try:
+            from app_sqlalchemy_backup import db, app as sql_app
+            with sql_app.app_context():
+                db.create_all()
+            print("[DB] SQLite tables created successfully!")
+            
+            # Seed base data
+            import populate_db
+            print("[DB] Base database seeded successfully!")
+            
+            # Seed high risk data
+            import seed_high_risk
+            print("[DB] High-risk data seeded successfully!")
+        except Exception as seed_err:
+            print(f"[DB] SQLite auto-initialization failed: {seed_err}")
+
 def get_conn(retries: int = 12, delay: float = 2.0):
     """Get a new DB connection, retrying a few times if the server is not yet ready.
 
@@ -110,43 +161,81 @@ def get_conn(retries: int = 12, delay: float = 2.0):
     raise last_exc
 
 def fetchall(sql, args=None):
-    conn = get_conn()
-    try:
-        with conn.cursor() as c:
-            c.execute(sql, args or ())
-            return c.fetchall()
-    finally:
-        conn.close()
+    if USE_SQLITE:
+        conn = get_sqlite_conn()
+        try:
+            c = conn.cursor()
+            c.execute(translate_mysql_to_sqlite(sql), args or ())
+            return [dict(r) for r in c.fetchall()]
+        finally:
+            conn.close()
+    else:
+        conn = get_conn()
+        try:
+            with conn.cursor() as c:
+                c.execute(sql, args or ())
+                return c.fetchall()
+        finally:
+            conn.close()
 
 def fetchone(sql, args=None):
-    conn = get_conn()
-    try:
-        with conn.cursor() as c:
-            c.execute(sql, args or ())
-            return c.fetchone()
-    finally:
-        conn.close()
+    if USE_SQLITE:
+        conn = get_sqlite_conn()
+        try:
+            c = conn.cursor()
+            c.execute(translate_mysql_to_sqlite(sql), args or ())
+            r = c.fetchone()
+            return dict(r) if r is not None else None
+        finally:
+            conn.close()
+    else:
+        conn = get_conn()
+        try:
+            with conn.cursor() as c:
+                c.execute(sql, args or ())
+                return c.fetchone()
+        finally:
+            conn.close()
 
 def execute(sql, args=None):
-    conn = get_conn()
-    try:
-        with conn.cursor() as c:
-            c.execute(sql, args or ())
+    if USE_SQLITE:
+        conn = get_sqlite_conn()
+        try:
+            c = conn.cursor()
+            c.execute(translate_mysql_to_sqlite(sql), args or ())
             conn.commit()
             return c.lastrowid
-    finally:
-        conn.close()
+        finally:
+            conn.close()
+    else:
+        conn = get_conn()
+        try:
+            with conn.cursor() as c:
+                c.execute(sql, args or ())
+                conn.commit()
+                return c.lastrowid
+        finally:
+            conn.close()
 
 def execute_many(sql_list):
-    """Execute multiple SQL statements in one connection."""
-    conn = get_conn()
-    try:
-        with conn.cursor() as c:
+    if USE_SQLITE:
+        conn = get_sqlite_conn()
+        try:
+            c = conn.cursor()
             for sql, args in sql_list:
-                c.execute(sql, args or ())
-        conn.commit()
-    finally:
-        conn.close()
+                c.execute(translate_mysql_to_sqlite(sql), args or ())
+            conn.commit()
+        finally:
+            conn.close()
+    else:
+        conn = get_conn()
+        try:
+            with conn.cursor() as c:
+                for sql, args in sql_list:
+                    c.execute(sql, args or ())
+            conn.commit()
+        finally:
+            conn.close()
 
 # ── Serialization ────────────────────────────────────────────────────────────
 def _cv(v):

@@ -7,11 +7,20 @@ from datetime import date, timedelta
 
 # Import database config from app
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from app import DB_CFG
+from app import DB_CFG, USE_SQLITE, sqlite_path, translate_mysql_to_sqlite
 
 # Connect using shared config
-conn = pymysql.connect(**DB_CFG, autocommit=True)
-cur = conn.cursor()
+if USE_SQLITE:
+    import sqlite3
+    conn = sqlite3.connect(sqlite_path)
+    cur = conn.cursor()
+    def run_sql(sql, args=None):
+        cur.execute(translate_mysql_to_sqlite(sql), args or ())
+else:
+    conn = pymysql.connect(**DB_CFG, autocommit=True)
+    cur = conn.cursor()
+    def run_sql(sql, args=None):
+        cur.execute(sql, args or ())
 
 FIRST_NAMES_M = ['Vikram','Rajesh','Suresh','Amit','Rohit','Deepak','Sanjay','Manoj','Anil','Ramesh',
                  'Karan','Nikhil','Pankaj','Gaurav','Harsh','Vivek','Ajay','Naveen','Tarun','Bharat']
@@ -48,7 +57,7 @@ for i in range(30):
     is_bpl = 1 if income < 12000 else random.choice([0, 1])
 
     # Insert user
-    cur.execute(
+    run_sql(
         """INSERT INTO users (aadhaar_number, full_name, gender, date_of_birth, phone, email, income, occupation, is_bpl, created_at)
            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())""",
         (aadhaar, full_name, gender, dob, phone, email, income, occupation, is_bpl)
@@ -59,7 +68,7 @@ for i in range(30):
     fraud_prob = round(random.uniform(0.60, 0.95), 4)
     anomaly_score = round(random.uniform(-0.9, -0.5), 4)
 
-    cur.execute(
+    run_sql(
         """INSERT INTO risk_scores (user_id, anomaly_score, fraud_probability, risk_level, updated_at)
            VALUES (%s, %s, %s, 'high', NOW())""",
         (user_id, anomaly_score, fraud_prob)
@@ -70,7 +79,7 @@ for i in range(30):
         scheme_id = random.randint(1, 10)
         status = random.choice(['pending', 'approved', 'approved', 'rejected'])
         try:
-            cur.execute(
+            run_sql(
                 """INSERT INTO applications (user_id, scheme_id, status, created_at, reviewed_at)
                    VALUES (%s, %s, %s, NOW(), NOW())""",
                 (user_id, scheme_id, status)
@@ -81,5 +90,7 @@ for i in range(30):
     inserted += 1
     print(f"  [{inserted:2d}] {full_name:<22s} aadhaar={aadhaar} fraud={fraud_prob:.2f} risk=HIGH")
 
+if USE_SQLITE:
+    conn.commit()
 conn.close()
 print(f"\nDone! Seeded {inserted} high-risk users (IDs {11}-{10+inserted}).")
