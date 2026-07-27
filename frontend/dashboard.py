@@ -312,7 +312,7 @@ elif page == "Search":
         search_val = st.text_input("Enter Name:", placeholder="Ramesh Kumar")
         results = beneficiaries[beneficiaries['name'].str.contains(search_val, case=False, na=False)]
         if not results.empty:
-            results = results.merge(risk_scores, on='beneficiary_id')
+            results = results.merge(risk_scores[['beneficiary_id', 'fraud_probability', 'risk_level', 'risk_factors']], on='beneficiary_id')
             st.dataframe(results[['beneficiary_id', 'name', 'age', 'state', 'fraud_probability', 'risk_level']].head(10))
         else:
             st.warning(f"No records found for {search_val}")
@@ -320,7 +320,7 @@ elif page == "Search":
     else:
         state_val = st.selectbox("Select State:", beneficiaries['state'].unique())
         state_data = beneficiaries[beneficiaries['state'] == state_val]
-        state_data = state_data.merge(risk_scores, on='beneficiary_id')
+        state_data = state_data.merge(risk_scores[['beneficiary_id', 'fraud_probability', 'risk_level', 'risk_factors']], on='beneficiary_id')
         st.dataframe(state_data[['beneficiary_id', 'name', 'age', 'fraud_probability', 'risk_level']].head(20))
 
 # ============================================================================
