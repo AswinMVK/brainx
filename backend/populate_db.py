@@ -60,8 +60,8 @@ with app.app_context():
     db.session.add_all([user1, user2])
     db.session.commit()
 
-    # Example risk scores and notifications
-    from app_sqlalchemy_backup import RiskScore, Notification
+    # Example risk scores, notifications, and verifications
+    from app_sqlalchemy_backup import RiskScore, Notification, BeneficiaryVerification
 
     risk1 = RiskScore(user_id=user1.id, anomaly_score=0.12, fraud_probability=0.05, risk_level='low', updated_at=datetime.utcnow())
     risk2 = RiskScore(user_id=user2.id, anomaly_score=0.35, fraud_probability=0.18, risk_level='medium', updated_at=datetime.utcnow())
@@ -69,7 +69,34 @@ with app.app_context():
     note1 = Notification(user_id=user1.id, message='Your PM Kisan application has been approved.', type='success', is_read=False, created_at=datetime.utcnow())
     note2 = Notification(user_id=user2.id, message='New risk alert: this scheme requires extra verification checks.', type='warning', is_read=False, created_at=datetime.utcnow())
 
-    db.session.add_all([risk1, risk2, note1, note2])
+    verif1 = BeneficiaryVerification(
+        user_id=user1.id,
+        beneficiary_type='alive',
+        aadhaar_doc_path='uploads/test_aadhaar.png',
+        pan_doc_path='uploads/test_pan.png',
+        selfie_path='uploads/test_selfie.png',
+        pan_number='ABCDE1234F',
+        match_score=92.5,
+        video_status='scheduled',
+        video_room_id='room_user_1',
+        video_room_url='https://meet.jit.si/room_user_1',
+        status='pending_video',
+        created_at=datetime.utcnow()
+    )
+    verif2 = BeneficiaryVerification(
+        user_id=user2.id,
+        beneficiary_type='alive',
+        aadhaar_doc_path='uploads/test_aadhaar.png',
+        pan_doc_path='uploads/test_pan.png',
+        selfie_path='uploads/test_selfie.png',
+        pan_number='XYZWV9876G',
+        match_score=85.0,
+        video_status='not_scheduled',
+        status='pending',
+        created_at=datetime.utcnow()
+    )
+
+    db.session.add_all([risk1, risk2, note1, note2, verif1, verif2])
     db.session.commit()
 
     print("Sample data added successfully!")
