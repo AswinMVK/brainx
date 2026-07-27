@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from 'react';
-import { gsap } from 'gsap';
 import api from '../api';
 import StatCard from './shared/StatCard';
 import SectionCard from './shared/SectionCard';
@@ -24,18 +23,6 @@ export default function AdminDashboard() {
       .then((r) => setOverview(r.data))
       .finally(() => setLoading(false));
   }, []);
-
-  useEffect(() => {
-    if (!loading && heroRef.current) {
-      const ctx = gsap.context(() => {
-        gsap.from(heroRef.current, { y: -30, opacity: 0, duration: 0.6, ease: 'power3.out' });
-        gsap.from(statsRef.current?.children || [], {
-          y: 30, opacity: 0, duration: 0.5, stagger: 0.1, ease: 'power2.out', delay: 0.2
-        });
-      }, heroRef);
-      return () => ctx.revert();
-    }
-  }, [loading]);
 
   const recomputeRisk = async () => {
     setRecomputing(true);

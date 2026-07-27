@@ -1,20 +1,7 @@
-import { useRef, useEffect } from 'react';
-import { gsap } from 'gsap';
+import { useRef } from 'react';
 
 export default function StatCard({ label, value, accent = '#3b82f6', icon, subtitle, trend }) {
   const cardRef = useRef(null);
-  const valueRef = useRef(null);
-
-  useEffect(() => {
-    gsap.fromTo(cardRef.current, { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: 'power2.out', delay: 0.1 });
-    if (typeof value === 'number' && valueRef.current) {
-      const obj = { val: 0 };
-      gsap.to(obj, {
-        val: value, duration: 1.4, ease: 'power2.out',
-        onUpdate: () => { if (valueRef.current) valueRef.current.textContent = Math.round(obj.val); }
-      });
-    }
-  }, [value]);
 
   return (
     <div ref={cardRef} style={{ flex: 1, minWidth: 180 }}>
@@ -51,8 +38,8 @@ export default function StatCard({ label, value, accent = '#3b82f6', icon, subti
         <div style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>
           {label}
         </div>
-        <div ref={valueRef} style={{ fontSize: 32, fontWeight: 800, color: accent, lineHeight: 1.1 }}>
-          {typeof value === 'number' ? 0 : value}
+        <div style={{ fontSize: 32, fontWeight: 800, color: accent, lineHeight: 1.1 }}>
+          {value}
         </div>
         {subtitle && (
           <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 6 }}>{subtitle}</div>
