@@ -1386,11 +1386,15 @@ def blockchain_proxy(subpath):
                     }
                 }
             ]
-            return jsonify(mock_blocks)
+            return jsonify({"length": 1, "chain": mock_blocks})
         elif subpath == 'stats':
             return jsonify({
-                "blocksCount": 1,
+                "chainLength": 1,
+                "totalRecords": 0,
+                "byType": {},
                 "lastBlockHash": "f1r57-h45h",
+                "lastBlockIndex": 0,
+                "isValid": True,
                 "online": False,
                 "note": "Running in Demo Fallback Mode because blockchain microservice is offline"
             })
